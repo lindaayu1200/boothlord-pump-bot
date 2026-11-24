@@ -52,7 +52,7 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         const cost = pos.cost_lamports;
         const armed = nextPeak * 100n >= cost * 102n;
         const aged = batch.slot - (entered.get(mint) ?? batch.slot) > 900;
-        if (netValue * 100n < cost * 88n || (armed && netValue * 100n < nextPeak * 82n) || aged) {
+        if (netValue * 100n < cost * 90n || (armed && netValue * 100n < nextPeak * 85n) || aged) {
           const order: SellInput = { side: 'sell', mint, token_amount: pos.token_amount, max_slippage_bps: SLIPPAGE };
           orders.push(order);
         }
@@ -84,7 +84,7 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         }
         const startPrice = rows[0].price;
         const currentPrice = rows[rows.length - 1].price;
-        if (net < 35n * LAMPORTS_PER_SOL / 10n || newNet <= 0n || newNet < oldNet || buyCount < 8 || buyers.size < 6 || currentPrice < startPrice * 1.10 || currentPrice > startPrice * 1.45 || currentPrice < high * 0.98) continue;
+        if (net < 35n * LAMPORTS_PER_SOL / 10n || newNet <= 0n || newNet < oldNet || buyCount < 8 || buyers.size < 6 || currentPrice < startPrice * 1.12 || currentPrice > startPrice * 1.35 || currentPrice < high * 0.98) continue;
         if (curve.real_quote_reserves < 5n * LAMPORTS_PER_SOL || curve.real_quote_reserves > 40n * LAMPORTS_PER_SOL) continue;
         if (committed >= 6 || committed >= state.hello.caps.max_open_positions) continue;
         const fee = TX_FEE(state);
