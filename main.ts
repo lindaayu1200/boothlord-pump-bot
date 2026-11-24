@@ -42,6 +42,7 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         if (pendingMints.has(mint) || orders.length >= state.hello.caps.max_orders_per_batch) continue;
         const curve = state.curves.get(mint);
         if (!curve || curve.virtual_token_reserves <= 0n) continue;
+        if (curve.real_quote_reserves >= 45n * LAMPORTS_PER_SOL) continue;
         const value = pos.token_amount * curve.virtual_quote_reserves /
           (curve.virtual_token_reserves + pos.token_amount);
         const afterCurveFee = value * 9875n / 10000n;
@@ -52,7 +53,7 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         const cost = pos.cost_lamports;
         const armed = nextPeak * 100n >= cost * 102n;
         const aged = batch.slot - (entered.get(mint) ?? batch.slot) > 900;
-        if (netValue * 100n < cost * 88n || (armed && netValue * 100n < nextPeak * 82n) || aged) {
+        if (netValue * 100n < cost * 85n || (armed && netValue * 100n < nextPeak * 72n) || aged) {
           const order: SellInput = { side: 'sell', mint, token_amount: pos.token_amount, max_slippage_bps: SLIPPAGE };
           orders.push(order);
         }
