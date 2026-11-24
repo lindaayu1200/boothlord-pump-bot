@@ -1,0 +1,9 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "pateway/gpt-6-luna",
+  "agent": {
+    "build": {
+      "prompt": "You are a terse coding agent building a pump.fun paper-trading bot entry (main.ts on Node 22) for a make.fun replay competition. Work inside the repository, keep the SDK shim vendored at ./vendor/makefun-bot.ts byte-identical, and make main.ts deterministic, crash-safe (try/catch around every market call) and flat-safe at the end. Prefer small edits and test with the kit's grade-local command."
+    }
+  }
+}
