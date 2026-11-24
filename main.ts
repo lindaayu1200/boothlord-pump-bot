@@ -70,22 +70,26 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         const rows = (tape.get(mint) ?? []).filter(t => t.slot >= batch.slot - 30 && t.slot <= batch.slot);
         if (rows.length < 5) continue;
         let net = 0n;
+        let oldNet = 0n;
+        let newNet = 0n;
         const buyers = new Set<string>();
         let buyCount = 0;
         let high = 0;
         for (const t of rows) {
           net += t.is_buy ? t.sol_amount : -t.sol_amount;
+          if (t.slot > batch.slot - 15) newNet += t.is_buy ? t.sol_amount : -t.sol_amount;
+          else oldNet += t.is_buy ? t.sol_amount : -t.sol_amount;
           if (t.is_buy) { buyers.add(t.user); buyCount++; }
           if (t.price > high) high = t.price;
         }
         const startPrice = rows[0].price;
         const currentPrice = rows[rows.length - 1].price;
-        if (net < 5n * LAMPORTS_PER_SOL / 2n || buyCount < 5 || buyers.size < 5 || currentPrice < startPrice * 1.10 || currentPrice > startPrice * 1.80 || currentPrice < high * 0.95) continue;
+        if (net < 35n * LAMPORTS_PER_SOL / 10n || newNet <= 0n || newNet < oldNet || buyCount < 8 || buyers.size < 6 || currentPrice < startPrice * 1.10 || currentPrice > startPrice * 1.45 || currentPrice < high * 0.98) continue;
         if (curve.real_quote_reserves < 5n * LAMPORTS_PER_SOL || curve.real_quote_reserves > 40n * LAMPORTS_PER_SOL) continue;
         if (committed >= 6 || committed >= state.hello.caps.max_open_positions) continue;
         const fee = TX_FEE(state);
         const cap = state.maxBuyLamports(mint);
-        const amount = [3n * LAMPORTS_PER_SOL / 100n, cap > fee ? cap - fee : 0n, state.freeCashLamports() > fee ? state.freeCashLamports() - fee : 0n]
+        const amount = [6n * LAMPORTS_PER_SOL / 100n, cap > fee ? cap - fee : 0n, state.freeCashLamports() > fee ? state.freeCashLamports() - fee : 0n]
           .reduce((a, b) => a < b ? a : b);
         if (amount <= 0n) continue;
         const order: BuyInput = { side: 'buy', mint, quote_lamports: amount, max_slippage_bps: SLIPPAGE };
