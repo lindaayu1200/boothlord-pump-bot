@@ -52,7 +52,8 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         const cost = pos.cost_lamports;
         const armed = nextPeak * 100n >= cost * 102n;
         const aged = batch.slot - (entered.get(mint) ?? batch.slot) > 900;
-        if (netValue * 100n < cost * 90n || (armed && netValue * 100n < nextPeak * 85n) || aged) {
+        const ride = curve.real_quote_reserves >= 42n * LAMPORTS_PER_SOL;
+        if (netValue * 100n < cost * 90n || (!ride && ((armed && netValue * 100n < nextPeak * 85n) || aged))) {
           const order: SellInput = { side: 'sell', mint, token_amount: pos.token_amount, max_slippage_bps: SLIPPAGE };
           orders.push(order);
         }
