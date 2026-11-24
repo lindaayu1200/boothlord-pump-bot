@@ -5,6 +5,8 @@ type TapeTrade = { slot: number; is_buy: boolean; sol_amount: bigint; user: stri
 const tape = new Map<string, TapeTrade[]>();
 const peaks = new Map<string, bigint>();
 const entered = new Map<string, number>();
+const lastExit = new Map<string, number>();
+const entryCount = new Map<string, number>();
 const SLIPPAGE = 1500;
 const TX_FEE = (s: BotState) => s.txFeeLamports();
 
@@ -48,9 +50,9 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         const nextPeak = netValue > peak ? netValue : peak;
         peaks.set(mint, nextPeak);
         const cost = pos.cost_lamports;
-        const armed = nextPeak * 100n >= cost * 103n;
-        const aged = batch.slot - (entered.get(mint) ?? batch.slot) > 1200;
-        if (netValue * 100n < cost * 85n || (armed && netValue * 100n < nextPeak * 85n) || aged) {
+        const armed = nextPeak * 100n >= cost * 102n;
+        const aged = batch.slot - (entered.get(mint) ?? batch.slot) > 900;
+        if (netValue * 100n < cost * 88n || (armed && netValue * 100n < nextPeak * 82n) || aged) {
           const order: SellInput = { side: 'sell', mint, token_amount: pos.token_amount, max_slippage_bps: SLIPPAGE };
           orders.push(order);
         }
@@ -63,25 +65,27 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
     for (const [mint, curve] of state.curves) {
       try {
         if (orders.length >= state.hello.caps.max_orders_per_batch) break;
-        if (occupied.has(mint) || curve.complete || curve.created_slot === null || batch.slot - curve.created_slot < 400) continue;
+        if (occupied.has(mint) || curve.complete || curve.created_slot === null || batch.slot - curve.created_slot < 800) continue;
+        if ((lastExit.has(mint) && batch.slot - lastExit.get(mint)! < 300) || (entryCount.get(mint) ?? 0) >= 3) continue;
         const rows = (tape.get(mint) ?? []).filter(t => t.slot >= batch.slot - 30 && t.slot <= batch.slot);
-        if (rows.length < 3) continue;
+        if (rows.length < 5) continue;
         let net = 0n;
         const buyers = new Set<string>();
+        let buyCount = 0;
         let high = 0;
         for (const t of rows) {
           net += t.is_buy ? t.sol_amount : -t.sol_amount;
-          if (t.is_buy) buyers.add(t.user);
+          if (t.is_buy) { buyers.add(t.user); buyCount++; }
           if (t.price > high) high = t.price;
         }
         const startPrice = rows[0].price;
         const currentPrice = rows[rows.length - 1].price;
-        if (net < LAMPORTS_PER_SOL || buyers.size < 3 || currentPrice < startPrice * 1.05 || currentPrice < high * 0.90) continue;
-        if (curve.real_quote_reserves < 2n * LAMPORTS_PER_SOL || curve.real_quote_reserves > 60n * LAMPORTS_PER_SOL) continue;
-        if (committed >= 8 || committed >= state.hello.caps.max_open_positions) continue;
+        if (net < 5n * LAMPORTS_PER_SOL / 2n || buyCount < 5 || buyers.size < 5 || currentPrice < startPrice * 1.10 || currentPrice > startPrice * 1.80 || currentPrice < high * 0.95) continue;
+        if (curve.real_quote_reserves < 5n * LAMPORTS_PER_SOL || curve.real_quote_reserves > 40n * LAMPORTS_PER_SOL) continue;
+        if (committed >= 6 || committed >= state.hello.caps.max_open_positions) continue;
         const fee = TX_FEE(state);
         const cap = state.maxBuyLamports(mint);
-        const amount = [LAMPORTS_PER_SOL / 20n, cap > fee ? cap - fee : 0n, state.freeCashLamports() > fee ? state.freeCashLamports() - fee : 0n]
+        const amount = [3n * LAMPORTS_PER_SOL / 100n, cap > fee ? cap - fee : 0n, state.freeCashLamports() > fee ? state.freeCashLamports() - fee : 0n]
           .reduce((a, b) => a < b ? a : b);
         if (amount <= 0n) continue;
         const order: BuyInput = { side: 'buy', mint, quote_lamports: amount, max_slippage_bps: SLIPPAGE };
@@ -97,11 +101,15 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
 runBot({
   onBatch: async (state, batch) => {
     const before = new Set(state.positions.keys());
+    for (const fill of batch.fills) {
+      if (fill.side === 'sell' && fill.status === 'filled' && !fill.client_id.startsWith('_')) lastExit.set(fill.mint, fill.slot);
+    }
     const orders = await onBatch(state, batch);
     for (const o of orders) {
       if (o.side === 'buy') {
         entered.set(o.mint, batch.slot);
         peaks.set(o.mint, 0n);
+        entryCount.set(o.mint, (entryCount.get(o.mint) ?? 0) + 1);
       }
     }
     for (const mint of before) {
