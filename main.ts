@@ -84,12 +84,12 @@ async function onBatch(state: BotState, batch: Batch): Promise<OrderInput[]> {
         }
         const startPrice = rows[0].price;
         const currentPrice = rows[rows.length - 1].price;
-        if (net < 35n * LAMPORTS_PER_SOL / 10n || newNet <= 0n || newNet < oldNet || buyCount < 8 || buyers.size < 6 || currentPrice < startPrice * 1.12 || currentPrice > startPrice * 1.35 || currentPrice < high * 0.98) continue;
+        if (net < 45n * LAMPORTS_PER_SOL / 10n || newNet <= 0n || newNet < oldNet || buyCount < 10 || buyers.size < 8 || currentPrice < startPrice * 1.12 || currentPrice > startPrice * 1.30 || currentPrice < high * 0.98) continue;
         if (curve.real_quote_reserves < 5n * LAMPORTS_PER_SOL || curve.real_quote_reserves > 40n * LAMPORTS_PER_SOL) continue;
-        if (committed >= 6 || committed >= state.hello.caps.max_open_positions) continue;
+        if (committed >= 5 || committed >= state.hello.caps.max_open_positions) continue;
         const fee = TX_FEE(state);
         const cap = state.maxBuyLamports(mint);
-        const amount = [6n * LAMPORTS_PER_SOL / 100n, cap > fee ? cap - fee : 0n, state.freeCashLamports() > fee ? state.freeCashLamports() - fee : 0n]
+        const amount = [LAMPORTS_PER_SOL / 20n, cap > fee ? cap - fee : 0n, state.freeCashLamports() > fee ? state.freeCashLamports() - fee : 0n]
           .reduce((a, b) => a < b ? a : b);
         if (amount <= 0n) continue;
         const order: BuyInput = { side: 'buy', mint, quote_lamports: amount, max_slippage_bps: SLIPPAGE };
